@@ -66,10 +66,23 @@ func (a *Anthropic) Generate(ctx context.Context, messages []llm.Message, opts .
 		req.Temperature = anthropic.Float(float64(options.Temperature))
 	}
 
-	// 调用 API
-	resp, err := a.client.Messages.New(ctx, req)
+	// 获取重试配置（默认使用 DefaultRetryConfig）
+	retryConfig := llm.DefaultRetryConfig
+	if options.Retry != nil {
+		retryConfig = *options.Retry
+	}
+
+	// 使用重试机制调用 API
+	resp, err := llm.DoWithRetry(ctx, retryConfig, func() (*anthropic.Message, error) {
+		r, err := a.client.Messages.New(ctx, req)
+		if err != nil {
+			return nil, convertError(err)
+		}
+		return r, nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("anthropic: api call: %w", err)
+		return nil, err
 	}
 
 	// 解析响应
@@ -169,7 +182,7 @@ func (a *Anthropic) Stream(ctx context.Context, messages []llm.Message, opts ...
 		}
 
 		if err := stream.Err(); err != nil {
-			chunkCh <- llm.Chunk{Type: "error", Error: err}
+			chunkCh <- llm.Chunk{Type: "error", Error: convertError(err)}
 		}
 	}()
 

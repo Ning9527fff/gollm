@@ -92,15 +92,28 @@ func (g *Gemini) Generate(ctx context.Context, messages []llm.Message, opts ...l
 		reqConfig.Tools = convertTools(options.Tools)
 	}
 
-	// 调用 API
-	resp, err := g.client.Models.GenerateContent(
-		ctx,
-		options.Model,
-		geminiMessages,
-		reqConfig,
-	)
+	// 获取重试配置（默认使用 DefaultRetryConfig）
+	retryConfig := llm.DefaultRetryConfig
+	if options.Retry != nil {
+		retryConfig = *options.Retry
+	}
+
+	// 使用重试机制调用 API
+	resp, err := llm.DoWithRetry(ctx, retryConfig, func() (*genai.GenerateContentResponse, error) {
+		r, err := g.client.Models.GenerateContent(
+			ctx,
+			options.Model,
+			geminiMessages,
+			reqConfig,
+		)
+		if err != nil {
+			return nil, convertError(err)
+		}
+		return r, nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("gemini: api call: %w", err)
+		return nil, err
 	}
 
 	// 解析响应
@@ -166,7 +179,7 @@ func (g *Gemini) Stream(ctx context.Context, messages []llm.Message, opts ...llm
 			reqConfig,
 		) {
 			if err != nil {
-				chunkCh <- llm.Chunk{Type: "error", Error: err}
+				chunkCh <- llm.Chunk{Type: "error", Error: convertError(err)}
 				return
 			}
 

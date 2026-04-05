@@ -51,7 +51,7 @@ func (o *OpenAI) Generate(ctx context.Context, messages []llm.Message, opts ...l
 	// 转换消息格式
 	oaiMessages, err := convertMessages(messages)
 	if err != nil {
-		return nil, fmt.Errorf("openai: convert messages: %w", err)
+		return nil, llm.NewLLMError("openai", 0, "failed to convert messages", err)
 	}
 
 	// 构建请求
@@ -67,14 +67,27 @@ func (o *OpenAI) Generate(ctx context.Context, messages []llm.Message, opts ...l
 		req.Tools = convertTools(options.Tools)
 	}
 
-	// 调用 API
-	resp, err := o.client.CreateChatCompletion(ctx, req)
+	// 获取重试配置（默认使用 DefaultRetryConfig）
+	retryConfig := llm.DefaultRetryConfig
+	if options.Retry != nil {
+		retryConfig = *options.Retry
+	}
+
+	// 使用重试机制调用 API
+	resp, err := llm.DoWithRetry(ctx, retryConfig, func() (*openai.ChatCompletionResponse, error) {
+		r, err := o.client.CreateChatCompletion(ctx, req)
+		if err != nil {
+			return nil, convertError(err)
+		}
+		return &r, nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("openai: api call: %w", err)
+		return nil, err
 	}
 
 	// 解析响应
-	return parseResponse(&resp), nil
+	return parseResponse(resp), nil
 }
 
 // Stream 流式生成响应
@@ -92,7 +105,7 @@ func (o *OpenAI) Stream(ctx context.Context, messages []llm.Message, opts ...llm
 	// 转换消息格式
 	oaiMessages, err := convertMessages(messages)
 	if err != nil {
-		return nil, fmt.Errorf("openai: convert messages: %w", err)
+		return nil, llm.NewLLMError("openai", 0, "failed to convert messages", err)
 	}
 
 	// 构建请求
@@ -112,7 +125,7 @@ func (o *OpenAI) Stream(ctx context.Context, messages []llm.Message, opts ...llm
 	// 创建流
 	stream, err := o.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("openai: create stream: %w", err)
+		return nil, convertError(err)
 	}
 
 	// 创建 channel
@@ -131,7 +144,7 @@ func (o *OpenAI) Stream(ctx context.Context, messages []llm.Message, opts ...llm
 					chunkCh <- llm.Chunk{Type: "done"}
 					return
 				}
-				chunkCh <- llm.Chunk{Type: "error", Error: err}
+				chunkCh <- llm.Chunk{Type: "error", Error: convertError(err)}
 				return
 			}
 

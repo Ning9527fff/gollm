@@ -199,3 +199,38 @@ func parseStreamChunk(chunk *openai.ChatCompletionStreamResponse) llm.Chunk {
 
 	return llm.Chunk{Type: "content_start"}
 }
+
+// convertError 将 OpenAI 错误转换为 LLMError
+func convertError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// 尝试解析为 OpenAI API 错误
+	if apiErr, ok := err.(*openai.APIError); ok {
+		return llm.NewLLMError(
+			"openai",
+			apiErr.HTTPStatusCode,
+			apiErr.Message,
+			err,
+		)
+	}
+
+	// 尝试解析为 OpenAI RequestError
+	if reqErr, ok := err.(*openai.RequestError); ok {
+		return llm.NewLLMError(
+			"openai",
+			reqErr.HTTPStatusCode,
+			reqErr.Err.Error(),
+			err,
+		)
+	}
+
+	// 其他错误，默认为不可重试
+	return llm.NewLLMError(
+		"openai",
+		0,
+		err.Error(),
+		err,
+	)
+}

@@ -149,3 +149,21 @@ func parseResponse(resp *anthropic.Message) *llm.Response {
 		},
 	}
 }
+
+// convertError 将 Anthropic 错误转换为 LLMError
+func convertError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Anthropic SDK 的错误类型处理
+	// 注：anthropic-sdk-go 的错误类型可能不同，这里提供通用处理
+	// 可以根据实际 SDK 错误类型进行更精确的处理
+
+	return llm.NewLLMError(
+		"anthropic",
+		0, // Anthropic SDK 可能不暴露状态码
+		err.Error(),
+		err,
+	)
+}

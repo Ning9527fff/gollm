@@ -21,6 +21,7 @@ type Options struct {
 	MaxTokens   int          // 最大输出 token 数
 	Tools       []Tool       // 可用的工具列表
 	Cache       *CacheConfig // 缓存配置
+	Retry       *RetryConfig // 重试配置
 }
 
 // WithModel 设置模型
@@ -56,4 +57,21 @@ func WithCache(config CacheConfig) Option {
 	return func(o *Options) {
 		o.Cache = &config
 	}
+}
+
+// WithRetry 设置重试配置
+func WithRetry(config RetryConfig) Option {
+	return func(o *Options) {
+		o.Retry = &config
+	}
+}
+
+// WithDefaultRetry 使用默认重试配置
+func WithDefaultRetry() Option {
+	return WithRetry(DefaultRetryConfig)
+}
+
+// WithNoRetry 禁用重试
+func WithNoRetry() Option {
+	return WithRetry(NoRetry)
 }

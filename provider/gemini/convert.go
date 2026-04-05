@@ -191,3 +191,21 @@ func parseResponse(resp *genai.GenerateContentResponse) *llm.Response {
 		Usage:      usage,
 	}
 }
+
+// convertError 将 Gemini 错误转换为 LLMError
+func convertError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Gemini SDK 的错误类型处理
+	// genai 包的错误类型可能不同，这里提供通用处理
+	// 可以根据实际 SDK 错误类型进行更精确的处理
+
+	return llm.NewLLMError(
+		"gemini",
+		0, // Gemini SDK 可能不暴露状态码
+		err.Error(),
+		err,
+	)
+}
