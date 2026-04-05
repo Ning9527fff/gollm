@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"

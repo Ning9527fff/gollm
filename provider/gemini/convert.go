@@ -2,7 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 
 	"google.golang.org/genai"
 )

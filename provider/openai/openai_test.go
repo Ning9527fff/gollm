@@ -2,7 +2,7 @@ package openai
 
 import (
 	"context"
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 	"os"
 	"testing"
 )

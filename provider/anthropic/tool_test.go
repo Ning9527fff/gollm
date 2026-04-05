@@ -3,7 +3,7 @@ package anthropic
 import (
 	"context"
 	"encoding/json"
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 	"os"
 	"testing"
 )

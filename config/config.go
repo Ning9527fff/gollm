@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 )
 
 // ProviderConfig Provider 配置

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"goLLM/llm"
+	"github.com/Ning9527fff/gollm/llm"
 
 	"google.golang.org/genai"
 )
