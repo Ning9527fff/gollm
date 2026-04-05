@@ -1,4 +1,4 @@
-module goLLM
+module github.com/Ning9527fff/gollm
 
 go 1.24.5
 
