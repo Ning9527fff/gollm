@@ -1,0 +1,69 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Build output
+bin/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Config files with secrets (keep example files)
+llm-config.json
+config.json
+*-config.json
+!example-config.json
+
+# Test output
+*.log
+
+# Compiled examples
+examples/*/tool_calling
+examples/*/streaming
+examples/*/main
+examples/*/*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+coverage.txt
+coverage.html
+
+# design doc
+claude-code-go-llm-architecture-analysis.md
+eino-llm-orchestration-analysis.md
+DeSIGN.md
+TODO.md
+
