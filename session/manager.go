@@ -665,3 +665,69 @@ func (m *Manager) GetCacheStats() map[string]interface{} {
 		"cached_sessions": len(m.sessions),
 	}
 }
+
+// GetWithBudget 获取会话消息，自动压缩到预算内
+// sessionID: 会话 ID
+// maxChars: 最大字符数预算
+// summarizer: 摘要生成器（可选，nil 则使用简单截断）
+// 返回压缩后的消息列表
+func (m *Manager) GetWithBudget(sessionID string, maxChars int, summarizer Summarizer) ([]llm.Message, error) {
+	session, err := m.getSessionFromCache(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := session.Messages
+
+	// 计算总字符数
+	totalChars := 0
+	for _, msg := range messages {
+		for _, block := range msg.Content {
+			if block.Type == "text" {
+				totalChars += len(block.Text)
+			}
+		}
+	}
+
+	// 未超出预算
+	if totalChars <= maxChars {
+		return messages, nil
+	}
+
+	// 超出预算：调用 Summarizer
+	if summarizer != nil {
+		ctx := context.Background()
+		summary, err := summarizer.Summarize(ctx, messages, maxChars)
+		if err == nil {
+			return []llm.Message{
+				{
+					Role: "system",
+					Content: []llm.ContentBlock{
+						{Type: "text", Text: "【历史摘要】\n" + summary},
+					},
+				},
+			}, nil
+		}
+	}
+
+	// 无 Summarizer：简单截断（保留最近的消息）
+	result := []llm.Message{}
+	chars := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		msgChars := 0
+		for _, block := range messages[i].Content {
+			if block.Type == "text" {
+				msgChars += len(block.Text)
+			}
+		}
+
+		if chars+msgChars > maxChars {
+			break
+		}
+
+		result = append([]llm.Message{messages[i]}, result...)
+		chars += msgChars
+	}
+
+	return result, nil
+}

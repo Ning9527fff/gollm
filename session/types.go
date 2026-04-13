@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"time"
 
 	"github.com/Ning9527fff/gollm/llm"
@@ -87,4 +88,15 @@ var DefaultConfig = Config{
 	MaxMessageHistory: 100,            // 最多保留 100 条消息
 	AutoCompress:      false,          // 默认不自动压缩
 	TTL:               24 * time.Hour, // 默认 24 小时过期
+}
+
+// Summarizer 消息摘要生成器接口
+// 用于将超出预算的消息历史压缩为简短摘要
+type Summarizer interface {
+	// Summarize 生成消息摘要
+	// ctx: 上下文
+	// messages: 需要摘要的消息列表
+	// maxChars: 摘要的最大字符数限制
+	// 返回摘要文本和错误
+	Summarize(ctx context.Context, messages []llm.Message, maxChars int) (string, error)
 }
