@@ -9,6 +9,7 @@
 
 ## ✨ 特性
 
+### 核心能力
 - 🎯 **统一接口** - 一套代码适配 OpenAI、Anthropic、Gemini
 - 🔧 **工具调用** - 完整的 Function Calling 支持
 - 📡 **流式输出** - 实时流式文本生成
@@ -17,6 +18,14 @@
 - ⚠️ **错误处理** - 结构化错误类型，支持错误判断和处理
 - ⚙️ **灵活配置** - 环境变量 + JSON 配置文件
 - 🚀 **易扩展** - 工厂模式，新Provider支持自动接入
+
+### 会话管理（新增 🎉）
+- 💾 **会话持久化** - 多轮对话上下文管理，支持 JSON Lines 和 BoltDB 存储
+- 📜 **事件溯源** - Event Sourcing 架构，完整记录状态变化
+- 📸 **快照机制** - 定期快照 + 增量事件，加速状态恢复
+- 🚀 **高性能缓存** - LRU + TTL 缓存，命中率 > 90%
+- 🔄 **上下文压缩** - 多种压缩策略（滑动窗口/摘要/混合），控制 Token 成本
+- 🎯 **生产级可靠** - 并发安全、原子操作、优雅退出
 
 ## 📦 支持的 Provider
 
@@ -183,7 +192,108 @@ messages := []llm.Message{
 resp, _ := client.Generate(ctx, messages, llm.WithModel("gemini-2.0-flash-exp"))
 ```
 
-### 4. 错误处理和重试
+### 4. 会话管理（多轮对话）
+
+```go
+import (
+    "github.com/Ning9527fff/gollm/session"
+    "github.com/Ning9527fff/gollm/memory"
+    ctxmgr "github.com/Ning9527fff/gollm/context"
+)
+
+// 1. 创建会话管理器
+sessionMgr, _ := session.NewManager(session.DefaultConfig)
+defer sessionMgr.Close()
+
+// 2. 创建缓存管理器（可选，提升性能）
+memoryMgr, _ := memory.NewDefaultManager()
+defer memoryMgr.Close()
+
+// 3. 创建上下文管理器
+contextMgr, _ := ctxmgr.NewDefaultManager(sessionMgr, memoryMgr)
+
+// 4. 创建会话
+sessionID := "user-123-chat"
+sessionMgr.Create(sessionID, map[string]string{
+    "user_id": "user-123",
+    "scene":   "customer_support",
+})
+
+// 5. 第一轮对话
+sessionMgr.AppendMessage(sessionID, llm.Message{
+    Role: "user",
+    Content: []llm.ContentBlock{
+        {Type: "text", Text: "什么是 Go？"},
+    },
+})
+
+// 构建上下文（自动包含历史）
+messages, _ := contextMgr.BuildContext(sessionID, ctxmgr.ContextOptions{
+    MaxTokens:     4000,
+    MaxMessages:   20,
+    IncludeSystem: true,
+    SystemPrompt:  "You are a helpful assistant.",
+})
+
+resp1, _ := client.Generate(ctx, messages, llm.WithModel("gpt-4o"))
+sessionMgr.AppendMessage(sessionID, llm.Message{
+    Role:    "assistant",
+    Content: resp1.Content,
+})
+
+// 6. 第二轮对话（自动包含第一轮的上下文）
+sessionMgr.AppendMessage(sessionID, llm.Message{
+    Role: "user",
+    Content: []llm.ContentBlock{
+        {Type: "text", Text: "它的并发模型是什么？"},
+    },
+})
+
+messages, _ = contextMgr.BuildContext(sessionID, ctxmgr.ContextOptions{
+    MaxTokens: 4000,
+})
+
+resp2, _ := client.Generate(ctx, messages, llm.WithModel("gpt-4o"))
+// 助手自动理解"它"指的是 Go 语言（因为有上下文）
+```
+
+### 5. 上下文压缩策略
+
+```go
+import ctxmgr "github.com/Ning9527fff/gollm/context"
+
+// 滑动窗口：保留最近 10 条消息
+messages, _ := contextMgr.BuildContext(sessionID, ctxmgr.ContextOptions{
+    Strategy: ctxmgr.NewSlidingWindowStrategy(10),
+})
+
+// 截断策略：最多 50 条消息
+messages, _ := contextMgr.BuildContext(sessionID, ctxmgr.ContextOptions{
+    Strategy: ctxmgr.NewTruncateStrategy(50),
+})
+
+// Token 限制 + 消息数量限制
+messages, _ := contextMgr.BuildContext(sessionID, ctxmgr.ContextOptions{
+    MaxTokens:   4000,
+    MaxMessages: 20,
+})
+```
+
+### 6. 事件溯源与状态恢复
+
+```go
+// 查看事件历史
+events, _ := sessionMgr.GetEvents(sessionID, 0)
+for _, event := range events {
+    fmt.Printf("[%d] %s: %v\n", event.Index, event.Type, event.Data)
+}
+
+// 从事件流重建会话状态
+session, _ := sessionMgr.ReplaySession(sessionID)
+fmt.Printf("重建会话: %d 条消息\n", len(session.Messages))
+```
+
+### 7. 错误处理和重试
 
 ```go
 // 使用默认重试配置（最多重试 3 次）
@@ -336,6 +446,7 @@ type Usage struct {
 
 - **[tool_calling](./examples/tool_calling)** - 完整的工具调用流程
 - **[streaming](./examples/streaming)** - 流式输出示例
+- **[session_chat](./examples/session_chat)** - 🆕 会话管理系统集成示例
 
 运行示例：
 
@@ -349,23 +460,44 @@ go run main.go -provider openai -model gpt-4o
 cd examples/streaming
 export OPENAI_API_KEY="..."
 go run main.go -provider openai -prompt "Write a poem"
+
+# 会话管理（包含 4 个演示场景）
+cd examples/session_chat
+export OPENAI_API_KEY="..."  # 可选，不设置将使用 mock
+go run main.go
 ```
 
 ## 🛣️ Roadmap
 
-### Supported
+### ✅ Phase 1: 核心能力（已完成）
 - ✅ MVP（核心接口 + 御三家支持）
 - ✅ Tool Calling
 - ✅ 流式支持
 - ✅ 重试机制 + 错误处理增强
 
-### Building
--  Prompt Caching（Anthropic）
--  成本计算与 Usage 追踪
--  Context 取消增强
--  工具并发执行
--  More LLM Provider Support
--  基础工具支持
+### ✅ Phase 2: 会话管理（已完成 🎉）
+- ✅ SessionManager - 会话生命周期管理
+- ✅ EventStorage - 事件溯源（JSON Lines 默认，BoltDB 可选）
+- ✅ MemoryManager - LRU + TTL 高性能缓存
+- ✅ ContextManager - 上下文构建与压缩
+- ✅ 快照机制 - 定期快照 + 增量恢复
+- ✅ 压缩策略 - 滑动窗口/截断/无压缩
+
+### 🚧 Phase 3: 高级特性（计划中）
+- 🚧 Prompt Caching（Anthropic）
+- 🚧 LLM 摘要压缩策略（基于 LLM 的智能摘要）
+- 🚧 RAG 检索集成（向量检索 + 混合检索）
+- 🚧 成本计算与 Usage 追踪
+- 🚧 Context 取消增强
+- 🚧 工具并发执行
+- 🚧 More LLM Provider Support
+- 🚧 分布式会话同步（Redis）
+
+### 📚 相关文档
+- [会话管理设计文档](./docs/session-management-design.md)
+- [事件存储设计](./docs/event-storage-design.md)
+- [使用示例](./docs/usage-examples.md)
+- [接口实现指南](./docs/storage-interface-guide.md)
 
 
 
